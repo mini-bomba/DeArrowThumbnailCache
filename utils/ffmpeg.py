@@ -1,5 +1,8 @@
 import subprocess
 import shutil
+import socket
+import time
+import pathlib
 
 TimeoutExpired = subprocess.TimeoutExpired
 ffmpeg_path = shutil.which("ffmpeg")
@@ -22,14 +25,19 @@ def run_ffmpeg(*args: str, timeout: float | None = None):
     Raises subprocess.TimeoutExpired on timeout. (reexported here for convenience)
     Raises FFmpegError if FFmpeg exits with a non-zero code.
     """
-    proc = subprocess.run(
-        [ffmpeg_path, *args],
-        shell=False,
-        stdin=subprocess.DEVNULL,
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL,
-        timeout=timeout,
-    )
+    log = pathlib.Path(f"logs/{socket.gethostname()}/ffmpeg-{round(time.time()*1000)}.log")
+    log.parent.mkdir(parents=True, exist_ok=True)
+    with log.open("w") as f:
+        proc = subprocess.run(
+            [ffmpeg_path, *args],
+            shell=False,
+            stdin=subprocess.DEVNULL,
+            stdout=f,
+            stderr=f,
+            timeout=timeout,
+        )
 
     if proc.returncode != 0:
         raise FFmpegError(proc.returncode)
+    else:
+        log.unlink()
