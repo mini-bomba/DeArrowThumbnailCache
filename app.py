@@ -30,7 +30,7 @@ logger = logging.getLogger('uvicorn.error')
 
 @app.get("/")
 def root() -> RedirectResponse:
-    return RedirectResponse("https://github.com/ajayyy/DeArrowThumbnailCache")
+    return RedirectResponse(config.project_url)
 
 @app.get("/api/v1/getThumbnail")
 async def get_thumbnail(response: Response, request: Request,

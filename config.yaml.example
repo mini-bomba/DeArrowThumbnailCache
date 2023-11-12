@@ -20,3 +20,4 @@ skip_local_ffmpeg: false
 try_floatie: true
 try_ytdlp: true
 debug: false
+project_url: https://github.com/ajayyy/DeArrowThumbnailCache

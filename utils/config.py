@@ -50,6 +50,7 @@ class Config(BaseModel):
     proxy_token: str | None = Field(None, description="Webshare.io API token for automatic proxy configuration")
     front_auth: str | None = Field(None, description="Auth token used to prioritize thumbnail generation jobs")
     debug: bool = Field(False, description="Print extra logging output")
+    project_url: HttpUrl = Field("https://github.com/ajayyy/DeArrowThumbnailCache", description="Project homepage, '/' will redirect here", validate_default=True)
 
 
 _config: Config | None = None
