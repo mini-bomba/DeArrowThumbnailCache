@@ -16,7 +16,7 @@ def valid_video_id(video_id: str) -> bool:
     return type(video_id) is str and re.match(r"^[A-Za-z0-9_\-]{11}$", video_id) is not None
 
 def get_playback_url(video_id: str, proxy_url: str | None = None,
-                        height: int = config["default_max_height"]) -> PlaybackUrl:
+                        height: int = config.default_max_height) -> PlaybackUrl:
     playback_urls = get_playback_urls(video_id, proxy_url)
 
     for url in playback_urls:
@@ -29,7 +29,7 @@ def get_playback_urls(video_id: str, proxy_url: str | None) -> list[PlaybackUrl]
     formats: list[dict[str, str | int]] | None = None
     errors: list[Exception] = []
 
-    if config["try_floatie"]:
+    if config.try_floatie:
         try:
             formats = floatie.fetch_playback_urls(video_id, proxy_url)
         except floatie.InnertubePlayabilityError:
@@ -38,7 +38,7 @@ def get_playback_urls(video_id: str, proxy_url: str | None) -> list[PlaybackUrl]
         except Exception as e:
             errors.append(e)
 
-    if formats is None and config["try_ytdlp"]:
+    if formats is None and config.try_ytdlp:
         # Fallback to ytdlp
         try:
             formats = fetch_playback_urls_from_ytdlp(video_id, proxy_url)

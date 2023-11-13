@@ -81,7 +81,7 @@ def generate_and_store_thumbnail(video_id: str, time: float) -> None:
         try:
             print(f"Generating image for {video_id}, {time_module.time()}")
 
-            generate_with_ffmpeg(video_id, time, playback_url, proxy_url if config["skip_local_ffmpeg"] else None)
+            generate_with_ffmpeg(video_id, time, playback_url, proxy_url if config.skip_local_ffmpeg else None)
             print("generated", time_module.time())
         except FFmpegError:
             if proxy_url is not None:
@@ -197,7 +197,7 @@ def get_folder_path(video_id: str) -> str:
     if not valid_video_id(video_id):
         raise ValueError(f"Invalid video ID: {video_id}")
 
-    return f"{config['thumbnail_storage']['path']}/{video_id}"
+    return f"{config.thumbnail_storage.path}/{video_id}"
 
 def get_job_id(video_id: str, time: float) -> str:
     return f"{video_id}-{time}"
