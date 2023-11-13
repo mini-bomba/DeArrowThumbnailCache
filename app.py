@@ -88,16 +88,15 @@ async def get_thumbnail(response: Response, request: Request,
                         job_timeout=30,
                         failure_ttl=500,
                         ttl=60,
-                        at_front="front_auth" in config\
-                            and config["front_auth"] is not None\
-                            and request.headers.get("authorization") == config["front_auth"])
+                        at_front=config.front_auth is not None and request.headers.get("authorization") == config.front_auth
+        )
 
     if job.is_failed:
         return thumbnail_response_error(redirectUrl, "Failed to generate thumbnail")
 
     result: bool = False
-    if ((job.get_position() or 0) < config["thumbnail_storage"]["max_before_async_generation"]
-            and (generateNow or len(queue_high) < config["thumbnail_storage"]["max_before_async_generation"])):
+    if ((job.get_position() or 0) < config.thumbnail_storage.max_before_async_generation
+            and (generateNow or len(queue_high) < config.thumbnail_storage.max_before_async_generation)):
         try:
             result = (await wait_for_message(job_id)) == "true"
         except TimeoutError:
@@ -143,7 +142,7 @@ def thumbnail_response_error(redirect_url: str | None, text: str) -> Response:
 def get_status(auth: str | None = None) -> dict[str, Any]:
     try:
         workers = Worker.all(connection=redis_conn)
-        is_authorized = auth is not None and compare_digest(auth, config["status_auth_password"])
+        is_authorized = auth is not None and compare_digest(auth, config.status_auth_password)
 
         return {
             "queues": {
@@ -178,7 +177,7 @@ def get_status(auth: str | None = None) -> dict[str, Any]:
 
 @app.get("/api/v1/clearQueue")
 def clear_queue(auth: str, low: bool = True, high: bool = False) -> None:
-    is_authorized = compare_digest(auth, config["status_auth_password"])
+    is_authorized = compare_digest(auth, config.status_auth_password)
 
     if is_authorized:
         if low:
@@ -296,6 +295,6 @@ def get_metrics() -> str:
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run("app:app", host=config["server"]["host"], # type: ignore
-                port=config["server"]["port"], reload=config["server"]["reload"],
-                log_level="info" if config["debug"] else "warning")
+    uvicorn.run("app:app", host=config.server.host, # type: ignore
+                port=config.server.port, reload=config.server.reload,
+                log_level="info" if config.debug else "warning")

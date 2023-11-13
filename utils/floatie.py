@@ -36,9 +36,12 @@ context = {
     "osVersion": innertube_details.android_version,
     "hl": "en",
     "gl": "US",
-    "visitorData": config["yt_auth"]["visitorData"]
   }
 }
+
+if config.yt_auth.visitor_data is not None:
+    context["client"]["visitorData"] = config.yt_auth.visitor_data.replace('=', '%3D')
+
 
 def fetch_playback_urls(video_id: str, proxy_url: str | None) -> list[dict[str, str | int]]:
     url = f"https://www.youtube.com/youtubei/v1/player?key={innertube_details.api_key}"

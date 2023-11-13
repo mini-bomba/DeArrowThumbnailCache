@@ -8,10 +8,10 @@ from utils.config import config
 from utils.redis_handler import get_async_redis_conn, redis_conn, queue_high
 from constants.thumbnail import image_format, minimum_file_size
 
-folder_path = config['thumbnail_storage']['path']
-max_size = config['thumbnail_storage']['max_size']
-target_storage_size = int(max_size * config['thumbnail_storage']['cleanup_multiplier'])
-redis_offset_allowed = config["thumbnail_storage"]["redis_offset_allowed"]
+folder_path = config.thumbnail_storage.path
+max_size = config.thumbnail_storage.max_size
+target_storage_size = int(max_size * config.thumbnail_storage.cleanup_multiplier)
+redis_offset_allowed = config.thumbnail_storage.redis_offset_allowed
 
 def cleanup() -> None:
     # First try cleanup using redis data

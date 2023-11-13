@@ -7,7 +7,7 @@ from retry import retry
 from rq.queue import Queue
 from utils.config import config
 
-redis_conn = Redis(host=config["redis"]["host"], port=config["redis"]["port"])
+redis_conn = Redis(host=config.redis.host, port=config.redis.port)
 async_redis_conn: "AsyncRedis[str] | None" = None
 
 queue_high = Queue("high", connection=redis_conn)
@@ -22,7 +22,7 @@ async def get_async_redis_conn() -> "AsyncRedis[str]":
     if async_redis_conn is not None:
         return async_redis_conn
 
-    async_redis_conn = AsyncRedis(host=config["redis"]["host"], port=config["redis"]["port"])
+    async_redis_conn = AsyncRedis(host=config.redis.host, port=config.redis.port)
     await async_redis_conn.ping()
     return async_redis_conn
 
