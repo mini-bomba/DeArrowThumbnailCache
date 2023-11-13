@@ -12,7 +12,7 @@ def get_wait_period() -> int:
     return random.randint(15, 60) * 60
 
 def fetch_proxies() -> list[Any]:
-    if config["proxy_token"] is None:
+    if config.proxy_token is None:
         return []
 
     next_wait_period = float(redis_conn.get("next_proxy_fetch") or 0)
@@ -23,7 +23,7 @@ def fetch_proxies() -> list[Any]:
 
         response = requests.get(
             "https://proxy.webshare.io/api/v2/proxy/list/?mode=direct&page=1&page_size=100&ordering=-valid",
-            headers={"Authorization": config["proxy_token"]}
+            headers={"Authorization": config.proxy_token}
         )
 
         result = response.json()
@@ -48,12 +48,10 @@ class ProxyInfo:
     country_code: str | None
 
 def get_proxy_url() -> ProxyInfo | None:
-    if config["proxy_token"] is None:
-        if "proxy_urls" in config and config["proxy_urls"] is not None and len(config["proxy_urls"]) > 0:
-            chosen_proxy = random.choice(config["proxy_urls"])
-            return ProxyInfo(chosen_proxy["url"], chosen_proxy["country_code"])
-        elif "proxy_url" in config and config["proxy_url"] is not None:
-            return ProxyInfo(config["proxy_url"], None)
+    if config.proxy_token is None:
+        if len(config.proxy_urls) > 0:
+            chosen_proxy = random.choice(config.proxy_urls)
+            return ProxyInfo(chosen_proxy.url, chosen_proxy.country_code)
         else:
             return None
 

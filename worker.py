@@ -47,9 +47,9 @@ def get_health_check() -> dict[str, Any]:
 if __name__ == "__main__":
     uvicorn_thread = threading.Thread(target=uvicorn.run, kwargs={
         "app": health_check,
-        "host": config["server"]["host"], # type: ignore
-        "port": config["server"]["worker_health_check_port"],
-        "log_level": "info" if config["debug"] else "warning"
+        "host": config.server.host, # type: ignore
+        "port": config.server.worker_health_check_port,
+        "log_level": "info" if config.debug else "warning"
     })
     uvicorn_thread.daemon = True
     uvicorn_thread.start()
