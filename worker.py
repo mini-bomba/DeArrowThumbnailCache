@@ -4,11 +4,11 @@ from fastapi import FastAPI, HTTPException
 import uvicorn
 from rq.worker import SimpleWorker as Worker, WorkerStatus, DequeueStrategy
 from utils.redis_handler import redis_conn
-from utils.config import config
-from utils.misc import generate_worker_name
+from utils.config import get_config
 
+config = get_config()
 listen = ["high", "default"]
-worker = Worker(listen, connection=redis_conn, name=generate_worker_name())
+worker = Worker(listen, connection=redis_conn, name=config.worker_name)
 
 health_check = FastAPI()
 
