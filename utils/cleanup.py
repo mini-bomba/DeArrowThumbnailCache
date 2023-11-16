@@ -3,6 +3,7 @@ import shutil
 import time
 from typing import Tuple
 
+from pydantic import ByteSize
 from retry import retry
 from .config import get_config
 from .redis_handler import get_async_redis_conn, redis_conn, queue_high
@@ -10,18 +11,18 @@ from .redis_handler import get_async_redis_conn, redis_conn, queue_high
 config = get_config()
 folder_path = config.thumbnail_storage.path
 max_size = config.thumbnail_storage.max_size
-target_storage_size = int(max_size * config.thumbnail_storage.cleanup_multiplier)
+target_storage_size = ByteSize(max_size * config.thumbnail_storage.cleanup_multiplier)
 redis_offset_allowed = config.thumbnail_storage.redis_offset_allowed
 
 def cleanup() -> None:
     # First try clenup using redis data
-    storage_used = int(redis_conn.get(storage_used_key()) or 0)
+    storage_used = ByteSize(redis_conn.get(storage_used_key()) or 0)
 
     if storage_used > target_storage_size:
         cleanup_internal(storage_used)
 
     before_storage_used = int(redis_conn.get(storage_used_key()) or 0)
-    (folder_size, file_count) = get_folder_size(folder_path)
+    folder_size, file_count = get_folder_size(folder_path)
     after_storage_used = int(redis_conn.get(storage_used_key()) or 0)
 
     diff = after_storage_used - before_storage_used
@@ -33,8 +34,8 @@ def cleanup() -> None:
         storage_saved = cleanup_internal(folder_size, file_count)
         redis_conn.set(storage_used_key(), folder_size - storage_saved)
 
-def cleanup_internal(folder_size: int, file_count: int | None = None) -> int:
-    print(f"Storage used: {folder_size} bytes with {file_count} files. Targeting {target_storage_size} bytes.")
+def cleanup_internal(folder_size: ByteSize, file_count: int | None = None) -> int:
+    print(f"Storage used: {folder_size.human_readable(True)} with {file_count} files. Targeting {target_storage_size.human_readable(True)}.")
 
     storage_saved = 0
     if folder_size > target_storage_size:
@@ -75,7 +76,7 @@ def check_if_cleanup_needed() -> None:
             queue_high.enqueue(cleanup, job_id=job_id, at_front=True, job_timeout="2h")
 
 
-def get_folder_size(path: os.PathLike[str] | str) -> Tuple[int, int]:
+def get_folder_size(path: os.PathLike[str] | str) -> Tuple[ByteSize, int]:
     total = 0
     file_count = 0
     try:
@@ -89,7 +90,7 @@ def get_folder_size(path: os.PathLike[str] | str) -> Tuple[int, int]:
     except FileNotFoundError:
         pass
 
-    return (total, file_count)
+    return ByteSize(total), file_count
 
 @retry(tries=5, delay=0.1, backoff=3)
 def get_oldest_video_id() -> str:
