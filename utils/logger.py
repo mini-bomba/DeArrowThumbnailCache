@@ -1,5 +1,6 @@
-from utils.config import config
+from .config import get_config
 
+config = get_config()
 
 def log(*data: object) -> None:
     if config.debug:

@@ -1,5 +1,5 @@
+import pathlib
 from multiprocessing import Process
-import os
 import shutil
 import time
 from unittest.mock import patch
@@ -12,8 +12,9 @@ from utils.cleanup import cleanup, last_used_element_key, last_used_key
 from utils.redis_handler import get_async_redis_conn, reset_async_redis_conn, redis_conn
 from utils.thumbnail import generate_thumbnail, get_file_paths
 
+TEST_CACHE = pathlib.Path("test-cache")
 # Clear test cache folder
-if os.path.exists("test-cache"):
+if TEST_CACHE.exists():
     shutil.rmtree("test-cache")
 
 @pytest.fixture(scope="function", autouse=True)
@@ -58,8 +59,8 @@ async def test_thumbnail_with_title_generate_now():
 
     thread.kill()
 
-def fake_folder_size(path: str) -> tuple[int, int]:
-    if path == "test-cache":
+def fake_folder_size(path: pathlib.Path) -> tuple[int, int]:
+    if path == TEST_CACHE:
         return (100001, 1)
     else:
         return (100, 0)
@@ -75,13 +76,13 @@ async def test_cleanup():
             last_used_element_key(new_video_id): int(time.time())
         })
 
-        assert os.path.exists(os.path.join("test-cache", new_video_id))
-        assert os.path.exists(os.path.join("test-cache", old_video_id))
+        assert (TEST_CACHE/new_video_id).exists()
+        assert (TEST_CACHE/old_video_id).exists()
 
         cleanup()
 
-        assert os.path.exists(os.path.join("test-cache", new_video_id))
-        assert not os.path.exists(os.path.join("test-cache", old_video_id))
+        assert (TEST_CACHE/new_video_id).exists()
+        assert not (TEST_CACHE/old_video_id).exists()
 
 async def load_and_verify_request(video_id: str, time: float, title: str | None = None, send_title: bool = False, generate_now: bool = False) -> None:
     test_response = Response()
@@ -98,13 +99,11 @@ async def load_and_verify_thumbnail(video_id: str, time: float, title: str | Non
     generate_thumbnail(video_id, time, title, False)
 
     # verify file exists
-    _, output_filename, metadata_filename = get_file_paths(video_id, time)
-    assert os.path.isfile(output_filename)
-    with open(output_filename, "rb") as output_file:
-        image = output_file.read()
-        assert len(image) > 0
+    _, output_file, metadata_file = get_file_paths(video_id, time)
+    assert output_file.is_file()
+    image = output_file.read_bytes()
+    assert len(image) > 0
 
     if title is not None:
-        assert os.path.isfile(metadata_filename)
-        with open(metadata_filename, "r") as metadata_file:
-            assert metadata_file.read() == title
+        assert metadata_file.is_file()
+        assert metadata_file.read_text() == title
