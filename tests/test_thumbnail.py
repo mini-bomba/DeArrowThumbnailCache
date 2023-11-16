@@ -5,6 +5,7 @@ import time
 from unittest.mock import patch
 
 from fastapi import Response
+from pydantic import ByteSize
 import pytest
 from rq.worker import Worker
 from app import get_thumbnail
@@ -59,11 +60,11 @@ async def test_thumbnail_with_title_generate_now():
 
     thread.kill()
 
-def fake_folder_size(path: pathlib.Path, _ = False) -> tuple[int, int]:
+def fake_folder_size(path: pathlib.Path, _ = False) -> tuple[ByteSize, int]:
     if path == TEST_CACHE:
-        return (100001, 1)
+        return ByteSize(100001), 1
     else:
-        return (100, 0)
+        return ByteSize(100), 0
 
 @pytest.mark.asyncio
 async def test_cleanup():
