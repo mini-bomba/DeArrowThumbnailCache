@@ -1,12 +1,16 @@
 import json
 from dataclasses import dataclass
 import re
+
+import pydantic
 import requests
-from utils.config import config
+from .config import get_config
 import time
 import random
-from utils.redis_handler import redis_conn
+from .redis_handler import redis_conn
 from typing import Any
+
+config = get_config()
 
 def get_wait_period() -> int:
     return random.randint(15, 60) * 60
@@ -39,7 +43,11 @@ def fetch_proxies() -> list[Any]:
     return json.loads(redis_conn.get("proxies") or "[]")
 
 def verify_proxy_url(url: str) -> bool:
-    return re.match(r"^[0-9A-Za-z\/:@_%.]+$", url) is not None
+    try:
+        pydantic.HttpUrl(url)
+        return True
+    except pydantic.ValidationError:
+        return False
 
 
 @dataclass
@@ -49,9 +57,9 @@ class ProxyInfo:
 
 def get_proxy_url() -> ProxyInfo | None:
     if config.proxy_token is None:
-        if len(config.proxy_urls) > 0:
+        if config.proxy_urls is not None:
             chosen_proxy = random.choice(config.proxy_urls)
-            return ProxyInfo(chosen_proxy.url, chosen_proxy.country_code)
+            return ProxyInfo(str(chosen_proxy.url), chosen_proxy.country_code)
         else:
             return None
 

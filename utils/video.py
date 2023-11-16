@@ -2,8 +2,10 @@ from dataclasses import dataclass
 import re
 from typing import Any, cast
 import yt_dlp # pyright: ignore[reportMissingTypeStubs]
-from utils.config import config
-import utils.floatie as floatie
+from .config import get_config
+from . import floatie
+
+config = get_config()
 
 @dataclass
 class PlaybackUrl:

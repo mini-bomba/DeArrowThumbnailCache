@@ -4,10 +4,11 @@ import time
 from typing import Tuple
 
 from retry import retry
-from utils.config import config
-from utils.redis_handler import get_async_redis_conn, redis_conn, queue_high
+from .config import get_config
+from .redis_handler import get_async_redis_conn, redis_conn, queue_high
 from constants.thumbnail import image_format, minimum_file_size
 
+config = get_config()
 folder_path = config.thumbnail_storage.path
 max_size = config.thumbnail_storage.max_size
 target_storage_size = int(max_size * config.thumbnail_storage.cleanup_multiplier)
@@ -26,7 +27,7 @@ def cleanup() -> None:
 
     diff = after_storage_used - before_storage_used
 
-    redis_conn.set(storage_used_key(), folder_size + (diff if diff > 0 else 0))
+    redis_conn.set(storage_used_key(), folder_size + max(diff, 0))
     redis_conn.set(last_storage_check_key(), int(time.time()))
 
     if folder_size > target_storage_size:
@@ -52,7 +53,7 @@ def cleanup_internal(folder_size: int, file_count: int | None = None) -> int:
             # Now use redis to find the best options to delete
             while folder_size - storage_saved > target_storage_size:
                 video_id = get_oldest_video_id()
-                storage_saved += get_folder_size(os.path.join(folder_path, video_id))[0]
+                storage_saved += get_folder_size(folder_path/video_id)[0]
                 delete_video(video_id)
 
     return storage_saved
@@ -75,7 +76,7 @@ def check_if_cleanup_needed() -> None:
             queue_high.enqueue(cleanup, job_id=job_id, at_front=True, job_timeout="2h")
 
 
-def get_folder_size(path: str, delete_small_images: bool = False) -> Tuple[int, int]:
+def get_folder_size(path: os.PathLike[str] | str, delete_small_images: bool = False) -> Tuple[int, int]:
     total = 0
     file_count = 0
     try:
@@ -112,7 +113,7 @@ def get_size_of_last_used() -> int:
 def delete_video(video_id: str) -> None:
     redis_conn.zrem(last_used_key(), last_used_element_key(video_id))
     try:
-        shutil.rmtree(os.path.join(folder_path, video_id))
+        shutil.rmtree(folder_path/video_id)
     except FileNotFoundError:
         print(f"Could not find folder for video {video_id}")
 

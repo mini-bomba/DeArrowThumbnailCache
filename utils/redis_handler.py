@@ -5,8 +5,9 @@ from redis.asyncio.client import PubSub
 import time
 from retry import retry
 from rq.queue import Queue
-from utils.config import config
+from .config import get_config
 
+config = get_config()
 redis_conn = Redis(host=config.redis.host, port=config.redis.port)
 async_redis_conn: "AsyncRedis[str] | None" = None
 
