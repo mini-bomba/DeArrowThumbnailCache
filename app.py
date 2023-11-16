@@ -2,7 +2,7 @@ import traceback
 from fastapi import FastAPI, HTTPException, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import RedirectResponse
-from utils.config import config
+from utils.config import get_config
 from utils.redis_handler import wait_for_message, queue_high, queue_low, redis_conn
 from utils.logger import log
 from typing import Any
@@ -15,6 +15,7 @@ import logging
 from utils.thumbnail import generate_thumbnail, get_latest_thumbnail_from_files, get_job_id, get_thumbnail_from_files, set_best_time
 from utils.video import valid_video_id
 
+config = get_config()
 app = FastAPI()
 app.add_middleware(
     CORSMiddleware,
@@ -77,7 +78,7 @@ async def get_thumbnail(response: Response, request: Request,
             job = other_queue_job
 
     if job is None or job.is_finished:
-        if len(queue) > config["thumbnail_storage"]["max_queue_size"]:
+        if len(queue) > config.thumbnail_storage.max_queue_size:
             return thumbnail_response_error(redirectUrl, "Failed to generate thumbnail due to queue being too big")
 
         # Start the job if it is not already started

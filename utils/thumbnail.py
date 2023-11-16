@@ -2,25 +2,26 @@ import asyncio
 from dataclasses import dataclass
 import math
 import os
+import pathlib
 import re
 import sys
-from typing import cast
-import requests
-
-from .ffmpeg import run_ffmpeg, FFmpegError
-import pathlib
-
-from retry import retry
-from utils.cleanup import add_storage_used, check_if_cleanup_needed, update_last_used
-from utils.proxy import get_proxy_url
-from utils.video import PlaybackUrl, get_playback_url, valid_video_id
-from utils.config import config
 import time as time_module
-from utils.redis_handler import get_async_redis_conn, redis_conn
-from utils.logger import log, log_error
+from typing import cast
+
+import requests
+from retry import retry
+
+from .cleanup import add_storage_used, check_if_cleanup_needed, update_last_used
+from .config import get_config
+from .ffmpeg import run_ffmpeg, FFmpegError
+from .logger import log, log_error
+from .proxy import get_proxy_url
+from .redis_handler import get_async_redis_conn, redis_conn
+from .video import PlaybackUrl, get_playback_url, valid_video_id
 from constants.thumbnail import image_format, metadata_format, minimum_file_size
 
 VIDEO_REQUEST_TIMEOUT = 5
+config = get_config()
 
 class ThumbnailGenerationError(Exception):
     pass
@@ -49,17 +50,16 @@ def generate_thumbnail(video_id: str, time: float, title: str | None, is_livestr
 
         generate_and_store_thumbnail(video_id, time, is_livestream)
 
-        _, output_filename, metadata_filename, _ = get_file_paths(video_id, time, is_livestream)
+        _, output_file, metadata_file, _ = get_file_paths(video_id, time, is_livestream)
         if title is not None:
-            with open(metadata_filename, "w") as metadata_file:
-                metadata_file.write(title)
+            metadata_file.write_text(title)
 
         title_file_size = len(title.encode("utf-8")) if title else 0
-        image_file_size = os.path.getsize(output_filename)
+        image_file_size = os.path.getsize(output_file)
         storage_used = title_file_size + image_file_size
 
         if image_file_size < minimum_file_size:
-            os.remove(output_filename)
+            os.remove(output_file)
             if update_redis:
                 try:
                     asyncio.get_event_loop().run_until_complete(add_storage_used(title_file_size))
@@ -114,8 +114,8 @@ def generate_and_store_thumbnail(video_id: str, time: float, is_livestream: bool
 
 def generate_with_ffmpeg(video_id: str, time: float, playback_url: PlaybackUrl,
                             is_livestream: bool, proxy_url: str | None = None) -> None:
-    output_folder, output_filename, _, video_filename = get_file_paths(video_id, time, is_livestream)
-    pathlib.Path(output_folder).mkdir(parents=True, exist_ok=True)
+    output_folder, output_file, _, video_file = get_file_paths(video_id, time, is_livestream)
+    output_folder.mkdir(parents=True, exist_ok=True)
 
     # Round down time to nearest frame be consistent with browsers
     rounded_time = int(time * playback_url.fps) / playback_url.fps
@@ -140,15 +140,10 @@ def generate_with_ffmpeg(video_id: str, time: float, playback_url: PlaybackUrl,
             video = requests.get(playback_url.url,
                                  timeout=5,
                                  proxies=proxies)
-            with open(video_filename, "wb") as f:
-                f.write(video.content)
-                print(f"Downloaded livestream video to{video_filename} with size of {len(video.content)}")
+            video_file.write_bytes(video.content)
+            print(f"Downloaded livestream video to{video_file} with size of {len(video.content)}")
         except Exception:
-            try:
-                os.remove(video_filename)
-            except FileNotFoundError:
-                pass
-
+            video_file.unlink(missing_ok=True)
             raise
         finally:
             sys.settrace(None)
@@ -160,21 +155,17 @@ def generate_with_ffmpeg(video_id: str, time: float, playback_url: PlaybackUrl,
         run_ffmpeg(
             "-y",
             *http_proxy,
-            "-ss", str(rounded_time), "-i", video_filename if is_livestream else playback_url.url,
-            "-vframes", "1", "-lossless", "0", "-pix_fmt", "bgra", output_filename,
+            "-ss", str(rounded_time), "-i", video_file if is_livestream else playback_url.url,
+            "-vframes", "1", "-lossless", "0", "-pix_fmt", "bgra", output_file,
             "-timelimit", "20",
             timeout=20,
         )
     except FFmpegError:
-        try:
-            os.remove(output_filename)
-        except FileNotFoundError:
-            pass
-
+        output_file.unlink(missing_ok=True)
         raise
     finally:
         if is_livestream:
-            os.remove(video_filename)
+            video_file.unlink(missing_ok=True)
 
 async def get_latest_thumbnail_from_files(video_id: str, is_livestream: bool) -> Thumbnail:
     if not valid_video_id(video_id):
@@ -183,7 +174,7 @@ async def get_latest_thumbnail_from_files(video_id: str, is_livestream: bool) ->
     output_folder = get_folder_path(video_id)
 
     files = os.listdir(output_folder)
-    files.sort(key=lambda x: os.path.getmtime(os.path.join(output_folder, x)), reverse=True)
+    files.sort(key=lambda x: os.path.getmtime(output_folder / x), reverse=True)
 
     best_time = await get_best_time(video_id)
 
@@ -233,47 +224,43 @@ async def get_thumbnail_from_files(video_id: str, time: float, is_livestream: bo
                         continue
                     break
 
-    _, output_filename, metadata_filename, _ = get_file_paths(video_id, time, is_livestream)
+    _, output_file, metadata_file, _ = get_file_paths(video_id, time, is_livestream)
 
-    with open(output_filename, "rb") as file:
-        image_data = file.read()
-        if image_data == b"":
-            raise FileNotFoundError(f"Image file for {video_id} at {time} zero bytes")
+    image_data = output_file.read_bytes()
+    if image_data == b"":
+        raise FileNotFoundError(f"Image file for {video_id} at {time} zero bytes")
 
-        if title is not None:
-            with open(metadata_filename, "w") as metadata_file:
-                metadata_file.write(title)
+    if title is not None:
+        metadata_file.write_text(title)
 
-        try:
-            await update_last_used(video_id)
-        except Exception as e:
-            log_error(f"Failed to update last used {e}")
+    try:
+        await update_last_used(video_id)
+    except Exception as e:
+        log_error(f"Failed to update last used {e}")
 
-        if title is None and os.path.exists(metadata_filename):
-            with open(metadata_filename, "r") as metadata_file:
-                return Thumbnail(image_data, time, metadata_file.read())
-        else:
-            return Thumbnail(image_data, time)
+    if title is None and metadata_file.exists():
+        return Thumbnail(image_data, time, metadata_file.read_text())
+    else:
+        return Thumbnail(image_data, time)
 
-def get_file_paths(video_id: str, time: float, is_livestream: bool) -> tuple[str, str, str, str]:
+def get_file_paths(video_id: str, time: float, is_livestream: bool) -> tuple[pathlib.Path, pathlib.Path, pathlib.Path, pathlib.Path]:
     if not valid_video_id(video_id):
         raise ValueError(f"Invalid video ID: {video_id}")
     if type(time) is not float:
         raise ValueError(f"Invalid time: {time}")
 
-
     output_folder = get_folder_path(video_id)
-    output_filename = f"{output_folder}/{time}{'-live' if is_livestream else ''}{image_format}"
-    metadata_filename = f"{output_folder}/{time}{metadata_format}"
-    video_filename = f"{output_folder}/{time}.mp4"
+    output_filename = output_folder/f"{time}{'-live' if is_livestream else ''}{image_format}"
+    metadata_filename = output_folder/f"{time}{metadata_format}"
+    video_filename = output_folder/f"{time}.mp4"
 
-    return (output_folder, output_filename, metadata_filename, video_filename)
+    return output_folder, output_filename, metadata_filename, video_filename
 
-def get_folder_path(video_id: str) -> str:
+def get_folder_path(video_id: str) -> pathlib.Path:
     if not valid_video_id(video_id):
         raise ValueError(f"Invalid video ID: {video_id}")
 
-    return f"{config.thumbnail_storage.path}/{video_id}"
+    return config.thumbnail_storage.path/video_id
 
 def get_job_id(video_id: str, time: float) -> str:
     return f"{video_id}-{time}"
