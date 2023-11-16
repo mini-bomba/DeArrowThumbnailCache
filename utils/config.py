@@ -2,8 +2,10 @@ import yaml
 import secrets
 import pathlib
 from pydantic import BaseModel, Field, ByteSize, HttpUrl
+from socket import gethostname
 
 from .test_utils import in_test
+from . import misc
 
 
 class ServerSettings(BaseModel):
@@ -49,8 +51,15 @@ class Config(BaseModel):
     proxy_urls: list[ProxyInfoConfig] | None = Field(None, description="Static list of proxies to use for downloading thumbnails", min_items=1)
     proxy_token: str | None = Field(None, description="Webshare.io API token for automatic proxy configuration")
     front_auth: str | None = Field(None, description="Auth token used to prioritize thumbnail generation jobs")
+    unique_hostnames: bool = Field(False, description="Assume worker hostnames are unique - don't add random suffixes")
     debug: bool = Field(False, description="Print extra logging output")
     project_url: HttpUrl = Field("https://github.com/ajayyy/DeArrowThumbnailCache", description="Project homepage, '/' will redirect here", validate_default=True)
+
+    @property
+    def worker_name(self) -> str:
+        if self.unique_hostnames:
+            return gethostname()
+        return f"{gethostname()}-{misc.random_hex(4)}"
 
 
 _config: Config | None = None
