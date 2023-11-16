@@ -15,7 +15,7 @@ class PlaybackUrl:
     fps: int
 
 def valid_video_id(video_id: str) -> bool:
-    return type(video_id) is str and re.match(r"^[A-Za-z0-9_\-]{11}$", video_id) is not None
+    return isinstance(video_id, str) and re.match(r"^[A-Za-z0-9_\-]{11}$", video_id) is not None
 
 def get_playback_url(video_id: str, proxy_url: str | None = None,
                         height: int = config.default_max_height) -> PlaybackUrl:
@@ -85,7 +85,7 @@ def fetch_playback_urls_from_ytdlp(video_id: str, proxy_url: str | None) -> list
         info: Any = ydl.extract_info(url, download=False)
 
         formats: list[dict[str, str | int]] = ydl.sanitize_info(info)["formats"] # pyright: ignore
-        if type(formats) is list:
+        if isinstance(formats, list):
             return formats
         else:
             raise ValueError("Failed to parse playback URLs: {video_id}")

@@ -39,7 +39,7 @@ def generate_thumbnail(video_id: str, time: float, title: str | None, is_livestr
         now = time_module.time()
         if not valid_video_id(video_id):
             raise ValueError(f"Invalid video ID: {video_id}")
-        if type(time) is not float:
+        if not isinstance(time, float):
             raise ValueError(f"Invalid time: {time}")
 
         if update_redis:
@@ -208,7 +208,7 @@ async def get_latest_thumbnail_from_files(video_id: str, is_livestream: bool) ->
 async def get_thumbnail_from_files(video_id: str, time: float, is_livestream: bool, title: str | None = None) -> Thumbnail:
     if not valid_video_id(video_id):
         raise ValueError(f"Invalid video ID: {video_id}")
-    if type(time) is not float:
+    if not isinstance(time, float):
         raise ValueError(f"Invalid time: {time}")
 
     with os.scandir(get_folder_path(video_id)) as it:
@@ -246,7 +246,7 @@ async def get_thumbnail_from_files(video_id: str, time: float, is_livestream: bo
 def get_file_paths(video_id: str, time: float, is_livestream: bool) -> tuple[pathlib.Path, pathlib.Path, pathlib.Path, pathlib.Path]:
     if not valid_video_id(video_id):
         raise ValueError(f"Invalid video ID: {video_id}")
-    if type(time) is not float:
+    if not isinstance(time, float):
         raise ValueError(f"Invalid time: {time}")
 
     output_folder = get_folder_path(video_id)

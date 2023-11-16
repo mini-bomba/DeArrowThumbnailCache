@@ -40,9 +40,8 @@ async def get_thumbnail(response: Response, request: Request,
                         officialTime: bool = False,
                         isLivestream: bool = False,
                         redirectUrl: str | None = None) -> Response:
-    if type(videoID) is not str or (type(time) is not float and time is not None) \
-            or type(generateNow) is not bool or not valid_video_id(videoID):
-        raise HTTPException(status_code=400, detail="Invalid parameters")
+    if not valid_video_id(videoID):
+        raise HTTPException(status_code=400, detail="Invalid videoID")
 
     if officialTime and time is not None:
         await set_best_time(videoID, time)

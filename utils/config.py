@@ -18,9 +18,18 @@ class ServerSettings(BaseModel):
 class ThumbnailStorage(BaseModel):
     path: pathlib.Path = Field(pathlib.Path("cache"), description="Path to thumbnail cache directory")
     max_size: ByteSize = Field("50MB", description="Size of the thumbnail cache at which a cleanup should be triggered", validate_default=True)
-    cleanup_multiplier: float = Field(0.5, description="Multiplier for max_size which determines how much space the thumbnail cache should take after cleanup", gt=0, le=1)
-    redis_offset_allowed: int = Field(20, description="Max allowed amount of videos which usage wasn't recorded in redis before removal is triggered", ge=0)
-    max_before_async_generation: int = Field(15, description="Max job position in queue before returning '400 Thumbnail not generated yet'", ge=2)
+    cleanup_multiplier: float = Field(
+        0.5, gt=0, le=1,
+        description="Multiplier for max_size which determines how much space the thumbnail cache should take after cleanup",
+    )
+    redis_offset_allowed: int = Field(
+        20, ge=0,
+        description="Max allowed amount of videos which usage wasn't recorded in redis before removal is triggered",
+    )
+    max_before_async_generation: int = Field(
+        15, ge=2,
+        description="Max job position in queue before returning '400 Thumbnail not generated yet'",
+    )
     max_queue_size: int = Field(10000, description="Max queue length before new requests are immediately dropped", ge=1)
 
 
@@ -44,16 +53,25 @@ class Config(BaseModel):
     redis: RedisConfig = Field(default_factory=RedisConfig)
     yt_auth: YTAuth = Field(default_factory=YTAuth)
     default_max_height: int = Field(720, description="Max height of generated thumbnails")
-    status_auth_password: str = Field(default_factory=lambda: secrets.token_urlsafe(64), description="Auth token for retrieving additional data from the status endpoint")
+    status_auth_password: str = Field(
+        default_factory=lambda: secrets.token_urlsafe(64),
+        description="Auth token for retrieving additional data from the status endpoint"
+    )
     try_floatie: bool = Field(True, description="Try using floatie to retrieve playback URLs")
     try_ytdlp: bool = Field(True, description="Try using yt-dlp to retrieve playback URLs")
     skip_local_ffmpeg: bool = Field(False, description="Only use proxies to download thumbnails with ffmpeg")
-    proxy_urls: list[ProxyInfoConfig] | None = Field(None, description="Static list of proxies to use for downloading thumbnails", min_items=1)
+    proxy_urls: list[ProxyInfoConfig] | None = Field(
+        None, min_items=1,
+        description="Static list of proxies to use for downloading thumbnails",
+    )
     proxy_token: str | None = Field(None, description="Webshare.io API token for automatic proxy configuration")
     front_auth: str | None = Field(None, description="Auth token used to prioritize thumbnail generation jobs")
     unique_hostnames: bool = Field(False, description="Assume worker hostnames are unique - don't add random suffixes")
     debug: bool = Field(False, description="Print extra logging output")
-    project_url: HttpUrl = Field("https://github.com/ajayyy/DeArrowThumbnailCache", description="Project homepage, '/' will redirect here", validate_default=True)
+    project_url: HttpUrl = Field(
+        "https://github.com/ajayyy/DeArrowThumbnailCache", validate_default=True,
+        description="Project homepage, '/' will redirect here",
+    )
 
     @property
     def worker_name(self) -> str:
