@@ -36,7 +36,7 @@ def generate_thumbnail(video_id: str, time: float, title: str | None, update_red
         now = time_module.time()
         if not valid_video_id(video_id):
             raise ValueError(f"Invalid video ID: {video_id}")
-        if type(time) is not float:
+        if not isinstance(time, float):
             raise ValueError(f"Invalid time: {time}")
 
         if update_redis:
@@ -156,7 +156,7 @@ async def get_latest_thumbnail_from_files(video_id: str) -> Thumbnail:
 async def get_thumbnail_from_files(video_id: str, time: float, title: str | None = None) -> Thumbnail:
     if not valid_video_id(video_id):
         raise ValueError(f"Invalid video ID: {video_id}")
-    if type(time) is not float:
+    if not isinstance(time, float):
         raise ValueError(f"Invalid time: {time}")
 
     _, output_file, metadata_file = get_file_paths(video_id, time)
@@ -181,7 +181,7 @@ async def get_thumbnail_from_files(video_id: str, time: float, title: str | None
 def get_file_paths(video_id: str, time: float) -> tuple[pathlib.Path, pathlib.Path, pathlib.Path]:
     if not valid_video_id(video_id):
         raise ValueError(f"Invalid video ID: {video_id}")
-    if type(time) is not float:
+    if not isinstance(time, float):
         raise ValueError(f"Invalid time: {time}")
 
     output_folder = get_folder_path(video_id)

@@ -1,6 +1,5 @@
 import json
 from dataclasses import dataclass
-import re
 
 import pydantic
 import requests
