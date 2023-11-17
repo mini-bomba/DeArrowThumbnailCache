@@ -5,6 +5,7 @@ from utils.config import get_config
 from utils.redis_handler import wait_for_message, queue_high, queue_low, redis_conn
 from utils.logger import log
 from typing import Any
+import time
 from hmac import compare_digest
 from rq.worker import Worker
 from utils.test_utils import in_test
@@ -193,6 +194,78 @@ def get_worker_info(worker: Worker, is_authorized: bool) -> dict[str, Any]:
         }
     except Exception:
         return {}
+
+@app.get("/metrics", response_class=Response)
+def get_status() -> str:
+    workers = Worker.all(connection=redis_conn)
+    result = [
+        "# HELP dearrow_current_time Current unix time", 
+        "# TYPE dearrow_current_time gauge",
+        f"dearrow_current_time {time.time()}", 
+        "# HELP dearrow_queue_length Current length of the queues",
+        "# TYPE dearrow_queue_length gauge", 
+        'dearrow_queue_length{queue="high"} %s' % len(queue_high),
+        'dearrow_queue_length{queue="low"} %s' % len(queue_low),
+        "# HELP dearrow_queue_scheduled Current amount of scheduled jobs from the queue",
+        "# TYPE dearrow_queue_scheduled gauge",
+        'dearrow_queue_scheduled{queue="high"} %s' % queue_high.scheduled_job_registry.count,
+        'dearrow_queue_scheduled{queue="low"} %s' % queue_low.scheduled_job_registry.count,
+        "# HELP dearrow_queue_finished Current amount of finished jobs from the queue",
+        "# TYPE dearrow_queue_finished gauge",
+        'dearrow_queue_finished{queue="high"} %s' % queue_high.finished_job_registry.count,
+        'dearrow_queue_finished{queue="low"} %s' % queue_low.finished_job_registry.count,
+        "# HELP dearrow_queue_failed Current amount of failed jobs from the queue",
+        "# TYPE dearrow_queue_failed gauge",
+        'dearrow_queue_failed{queue="high"} %s' % queue_high.failed_job_registry.count,
+        'dearrow_queue_failed{queue="low"} %s' % queue_low.failed_job_registry.count,
+        "# HELP dearrow_queue_started Current amount of started jobs from the queue",
+        "# TYPE dearrow_queue_started gauge",
+        'dearrow_queue_started{queue="high"} %s' % queue_high.started_job_registry.count,
+        'dearrow_queue_started{queue="low"} %s' % queue_low.started_job_registry.count,
+        "# HELP dearrow_queue_deferred Current amount of deferred jobs from the queue",
+        "# TYPE dearrow_queue_deferred gauge",
+        'dearrow_queue_deferred{queue="high"} %s' % queue_high.deferred_job_registry.count,
+        'dearrow_queue_deferred{queue="low"} %s' % queue_low.deferred_job_registry.count,
+        "# HELP dearrow_queue_cancelled Current amount of cancelled jobs from the queue",
+        "# TYPE dearrow_queue_cancelled gauge",
+        'dearrow_queue_cancelled{queue="high"} %s' % queue_high.canceled_job_registry.count,
+        'dearrow_queue_cancelled{queue="low"} %s' % queue_low.canceled_job_registry.count,
+        "# HELP dearrow_workers Current amount of connected workers",
+        "# TYPE dearrow_workers gauge",
+        f"dearrow_workers {len(workers)}",
+        "# HELP dearrow_worker_birth_date Unix timestamp at which this worker connected",
+        "# TYPE dearrow_worker_birth_date gauge",
+        *[
+            'dearrow_worker_birth_date{worker_name="%s"} %s' % (w.name, w.birth_date.timestamp())
+            for w in workers
+        ],
+        "# HELP dearrow_worker_busy Is this worker busy?",
+        "# TYPE dearrow_worker_busy gauge",
+        *[
+            'dearrow_worker_busy{worker_name="%s"} %s' % (w.name, int(w.get_state() == "busy"))
+            for w in workers
+        ],
+        "# HELP dearrow_worker_successful_job_count Number of jobs this worker has successfully completed",
+        "# TYPE dearrow_worker_successful_job_count counter",
+        *[
+            'dearrow_worker_successful_job_count{worker_name="%s"} %s' % (w.name, w.successful_job_count)
+            for w in workers
+        ],
+        "# HELP dearrow_worker_failed_job_count Number of jobs this worker failed to complete",
+        "# TYPE dearrow_worker_failed_job_count counter",
+        *[
+            'dearrow_worker_failed_job_count{worker_name="%s"} %s' % (w.name, w.failed_job_count)
+            for w in workers
+        ],
+        "# HELP dearrow_worker_working_time Number of seconds this worker has spent working",
+        "# TYPE dearrow_worker_working_time counter",
+        *[
+            'dearrow_worker_working_time{worker_name="%s"} %s' % (w.name, w.total_working_time)
+            for w in workers
+        ],
+    ]
+
+    return "\n".join(result)
 
 if __name__ == "__main__":
     import uvicorn
