@@ -1,12 +1,11 @@
-# 11.4 due to regression https://github.com/python/cpython/issues/109538
-FROM python:3.11.4-alpine AS builder
+FROM python:3.12-alpine AS builder
 RUN apk add --no-cache ffmpeg gcc musl-dev libffi-dev git
 COPY requirements.txt /
 RUN mkdir /wheels
 WORKDIR /wheels
 RUN pip wheel -r /requirements.txt
 
-FROM python:3.11-alpine AS base
+FROM python:3.12-alpine AS base
 COPY --from=builder /wheels /wheels
 RUN pip install /wheels/* && rm -rf /wheels
 RUN apk add --no-cache ffmpeg curl
