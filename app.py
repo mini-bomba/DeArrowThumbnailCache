@@ -98,7 +98,7 @@ async def get_thumbnail(response: Response, request: Request,
     if ((job.get_position() or 0) < config.thumbnail_storage.max_before_async_generation
             and (generateNow or len(queue_high) < config.thumbnail_storage.max_before_async_generation)):
         try:
-            result = (await wait_for_message(job_id)) == "true"
+            result = (await wait_for_message(job_id, timeout=config.thumbnail_storage.timeout_before_async_generation)) == "true"
         except TimeoutError:
             log("Failed to generate thumbnail due to timeout")
             return thumbnail_response_error(redirectUrl, "Failed to generate thumbnail due to timeout")

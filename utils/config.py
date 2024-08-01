@@ -17,7 +17,10 @@ class ServerSettings(BaseModel):
 
 class ThumbnailStorage(BaseModel):
     path: pathlib.Path = Field(pathlib.Path("cache"), description="Path to thumbnail cache directory")
-    max_size: ByteSize = Field("50MB", description="Size of the thumbnail cache at which a cleanup should be triggered", validate_default=True)
+    max_size: ByteSize = Field(
+        "50MB", validate_default=True,
+        description="Size of the thumbnail cache at which a cleanup should be triggered"
+    )
     cleanup_multiplier: float = Field(
         0.5, gt=0, le=1,
         description="Multiplier for max_size which determines how much space the thumbnail cache should take after cleanup",
@@ -28,7 +31,11 @@ class ThumbnailStorage(BaseModel):
     )
     max_before_async_generation: int = Field(
         15, ge=2,
-        description="Max job position in queue before returning '400 Thumbnail not generated yet'",
+        description="Max job position in queue before returning '204 Thumbnail not generated yet'",
+    )
+    timeout_before_async_generation: int = Field(
+        15, gt=0,
+        description="Max time to wait for thumbnail to be ready before returning 204",
     )
     max_queue_size: int = Field(10000, description="Max queue length before new requests are immediately dropped", ge=1)
 
