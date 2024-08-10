@@ -3,6 +3,7 @@ import secrets
 import pathlib
 from pydantic import BaseModel, Field, ByteSize, HttpUrl
 from socket import gethostname
+from datetime import timedelta
 
 from .test_utils import in_test
 from . import misc
@@ -50,8 +51,19 @@ class ProxyInfoConfig(BaseModel):
     country_code: str | None = Field(None, description="Country code of the proxy, used in error logging")
 
 
+class NSigHelperConfig(BaseModel):
+    tcp: tuple[str, int] | None = Field(None, description="Address & port combo (for tcp comms)")
+    unix: pathlib.Path | None = Field(None, description="Location of unix socket (for unix socket comms)")
+    max_player_age: timedelta = Field(
+        "1:00:00", ge=timedelta(0), validate_default=True,
+        description="If nsig helper's player is older than this value, request an update",
+    )
+
+
 class YTAuth(BaseModel):
     visitor_data: str | None = Field(None, alias="visitorData", description="Value for the .context.client.visitorData field in player requests")
+    po_token: str | None = Field(None, description="Value for the .serviceIntegrityDimensions.poToken field in player requests")
+    nsig_helper: NSigHelperConfig = Field(..., default_factory=NSigHelperConfig, description="Connection config for invidious' NSig helper")
 
 
 class Config(BaseModel):

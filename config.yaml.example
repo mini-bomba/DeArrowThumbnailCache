@@ -15,6 +15,11 @@ redis:
   port: 32774
 yt_auth:
   visitor_data: "Cgt0bkJPQ1poV1VUZyiniom3BjIKCgJDQRIEGgAgGA%3D%3D"
+  po_token: ....
+  nsig_helper:
+    tcp: ['localhost', 1234] # for tcp
+    unix: /path/to/nsighelper/socket
+    max_player_age: '1:00:00'
 default_max_height: 720
 status_auth_password: password
 skip_local_ffmpeg: false
