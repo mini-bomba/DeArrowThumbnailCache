@@ -51,8 +51,7 @@ def get_playback_urls(video_id: str, proxy_url: str | None) -> list[PlaybackUrl]
             errors.append(e)
 
     if formats is None:
-        raise ValueError(f"Failed to fetch playback URLs: {video_id} Errors: {','.join([str(error) for error in errors])}") \
-            from errors[0]
+        raise ExceptionGroup(f"Failed to fetch playback URLs: {video_id}", errors)
 
     if any(format_has_av1(format) for format in formats):
         # Filter for only av1
