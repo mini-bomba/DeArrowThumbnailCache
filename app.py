@@ -1,18 +1,19 @@
+import logging
+import time
 import traceback
+from hmac import compare_digest
+from typing import Any
+
 from fastapi import FastAPI, HTTPException, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import RedirectResponse
-from utils.config import get_config
-from utils.redis_handler import wait_for_message, queue_high, queue_low, redis_conn
-from utils.logger import log
-from typing import Any
-import time
-from hmac import compare_digest
 from rq.worker import Worker
-from utils.test_utils import in_test
-import logging
 
-from utils.thumbnail import generate_thumbnail, get_latest_thumbnail_from_files, get_job_id, get_thumbnail_from_files, set_best_time
+from utils.config import get_config
+from utils.logger import logging_setup
+from utils.redis_handler import queue_high, queue_low, redis_conn, wait_for_message
+from utils.test_utils import in_test
+from utils.thumbnail import generate_thumbnail, get_job_id, get_latest_thumbnail_from_files, get_thumbnail_from_files, set_best_time
 from utils.video import valid_video_id
 
 config = get_config()
@@ -26,11 +27,14 @@ app.add_middleware(
     expose_headers=["X-Timestamp", "X-Title", "X-Failure-Reason"],
 )
 
-logger = logging.getLogger('uvicorn.error')
+logger = logging.getLogger('app')
+logger.setLevel(logging.INFO)
+
 
 @app.get("/")
 def root() -> RedirectResponse:
     return RedirectResponse(config.project_url)
+
 
 @app.get("/api/v1/getThumbnail")
 async def get_thumbnail(response: Response, request: Request,
@@ -54,7 +58,6 @@ async def get_thumbnail(response: Response, request: Request,
     if time is None:
         # If we got here with a None time, then there is no thumbnail to pull from
         return thumbnail_response_error(redirectUrl, "Thumbnail not cached")
-
 
     job_id = get_job_id(videoID, time)
     queue = queue_high if generateNow else queue_low
@@ -82,13 +85,14 @@ async def get_thumbnail(response: Response, request: Request,
 
         # Start the job if it is not already started
         # TODO: Remove the ttl when proper priority is implemented
-        job = queue.enqueue(generate_thumbnail,
-                        args=(videoID, time, title, isLivestream, not in_test()),
-                        job_id=job_id,
-                        job_timeout=30,
-                        failure_ttl=500,
-                        ttl=60,
-                        at_front=config.front_auth is not None and request.headers.get("authorization") == config.front_auth
+        job = queue.enqueue(
+            generate_thumbnail,
+            args=(videoID, time, title, isLivestream, not in_test()),
+            job_id=job_id,
+            job_timeout=30,
+            failure_ttl=500,
+            ttl=60,
+            at_front=config.front_auth is not None and request.headers.get("authorization") == config.front_auth
         )
 
     if job.is_failed:
@@ -100,20 +104,20 @@ async def get_thumbnail(response: Response, request: Request,
         try:
             result = (await wait_for_message(job_id, timeout=config.thumbnail_storage.timeout_before_async_generation)) == "true"
         except TimeoutError:
-            log("Failed to generate thumbnail due to timeout")
+            logger.info("Failed to generate thumbnail due to timeout")
             return thumbnail_response_error(redirectUrl, "Failed to generate thumbnail due to timeout")
     else:
-        log("Thumbnail not generated yet", job.get_position())
+        logger.info(f"Thumbnail not generated yet (pos {job.get_position()})")
         return thumbnail_response_error(redirectUrl, "Thumbnail not generated yet")
 
     if result:
         try:
             return await handle_thumbnail_response(videoID, time, isLivestream, title, response)
-        except Exception as e:
-            log("Server error when getting thumbnails", e)
+        except Exception:
+            logger.exception("Server error when getting thumbnails")
             return thumbnail_response_error(redirectUrl, "Server error")
     else:
-        log("Failed to generate thumbnail")
+        logger.info("Failed to generate thumbnail")
         return thumbnail_response_error(redirectUrl, "Failed to generate thumbnail")
 
 
@@ -130,6 +134,7 @@ async def handle_thumbnail_response(video_id: str, time: float | None, is_livest
 
     return Response(content=thumbnail.image, media_type="image/webp", headers=response.headers)
 
+
 def thumbnail_response_error(redirect_url: str | None, text: str) -> Response:
     if redirect_url is not None and redirect_url.startswith("https://i.ytimg.com"):
         return RedirectResponse(redirect_url)
@@ -137,6 +142,7 @@ def thumbnail_response_error(redirect_url: str | None, text: str) -> Response:
         raise HTTPException(status_code=204, headers={
             "X-Failure-Reason": text
         })
+
 
 @app.get("/api/v1/status")
 def get_status(auth: str | None = None) -> dict[str, Any]:
@@ -175,6 +181,7 @@ def get_status(auth: str | None = None) -> dict[str, Any]:
             "workers_count": 0
         }
 
+
 @app.get("/api/v1/clearQueue")
 def clear_queue(auth: str, low: bool = True, high: bool = False) -> None:
     is_authorized = compare_digest(auth, config.status_auth_password)
@@ -212,6 +219,7 @@ def get_worker_info(worker: Worker, is_authorized: bool) -> dict[str, Any]:
         }
     except Exception:
         return {}
+
 
 @app.get("/metrics", response_class=Response)
 def get_metrics() -> str:
@@ -293,8 +301,17 @@ def get_metrics() -> str:
 
     return "\n".join(result)
 
+
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run("app:app", host=config.server.host, # type: ignore
-                port=config.server.port, reload=config.server.reload,
-                log_level="info" if config.debug else "warning")
+
+    logging_setup()
+    uvicorn.run(
+        "app:app",
+        host=config.server.host,
+        port=config.server.port,
+        reload=config.server.reload,
+        log_config=None,
+        log_level=config.log_level,
+        access_log=config.server.access_log
+    )

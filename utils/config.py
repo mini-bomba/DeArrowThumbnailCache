@@ -1,12 +1,13 @@
-import yaml
-import secrets
 import pathlib
-from pydantic import BaseModel, Field, ByteSize, HttpUrl
-from socket import gethostname
+import secrets
 from datetime import timedelta
+from socket import gethostname
 
-from .test_utils import in_test
+import yaml
+from pydantic import BaseModel, ByteSize, Field, HttpUrl
+
 from . import misc
+from .test_utils import in_test
 
 
 class ServerSettings(BaseModel):
@@ -14,6 +15,7 @@ class ServerSettings(BaseModel):
     port: int = Field(3001, description="Port the main app should listen on", ge=1, le=65535)
     worker_health_check_port: int = Field(3002, description="Port workers should listen on for healthcheck requests")
     reload: bool = Field(False, description="Reload the app on file changes")
+    access_log: bool = Field(False, description="Enable the access log (requires debug: true)")
 
 
 class ThumbnailStorage(BaseModel):
@@ -90,7 +92,7 @@ class Config(BaseModel):
     proxy_token: str | None = Field(None, description="Webshare.io API token for automatic proxy configuration")
     front_auth: str | None = Field(None, description="Auth token used to prioritize thumbnail generation jobs")
     unique_hostnames: bool = Field(False, description="Assume worker hostnames are unique - don't add random suffixes")
-    debug: bool = Field(False, description="Print extra logging output")
+    log_level: str | int = Field("warning", description="Print logs with this level and higher")
     project_url: HttpUrl = Field(
         "https://github.com/ajayyy/DeArrowThumbnailCache", validate_default=True,
         description="Project homepage, '/' will redirect here",

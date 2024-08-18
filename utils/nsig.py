@@ -9,7 +9,7 @@ import sys
 from .config import get_config
 
 config = get_config()
-logger = logging.getLogger("nsig")
+logger = logging.getLogger("utils.nsig")
 _global_nsig: 'NsigHelper | None' = None
 U16 = 2**16
 U32 = 2**32

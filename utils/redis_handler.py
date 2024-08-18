@@ -1,10 +1,12 @@
+import time
 from typing import Any, cast
+
 from redis import Redis
 from redis.asyncio import Redis as AsyncRedis
 from redis.asyncio.client import PubSub
-import time
 from retry import retry
 from rq.queue import Queue
+
 from .config import get_config
 
 config = get_config()
@@ -14,8 +16,10 @@ async_redis_conn: "AsyncRedis[str] | None" = None
 queue_high = Queue("high", connection=redis_conn)
 queue_low = Queue("default", connection=redis_conn)
 
+
 async def init() -> None:
     await get_async_redis_conn()
+
 
 @retry(tries=5, delay=0.1, backoff=3)
 async def get_async_redis_conn() -> "AsyncRedis[str]":
@@ -27,14 +31,17 @@ async def get_async_redis_conn() -> "AsyncRedis[str]":
     await async_redis_conn.ping()
     return async_redis_conn
 
+
 def reset_async_redis_conn() -> None:
     global async_redis_conn
     async_redis_conn = None
+
 
 async def get_redis_pubsub() -> PubSub:
     redis_conn = await get_async_redis_conn()
     redis_pubsub = redis_conn.pubsub(ignore_subscribe_messages=True)
     return redis_pubsub
+
 
 @retry(tries=5, delay=0.1, backoff=3)
 async def wait_for_message(key: str, timeout: int = 15) -> str:

@@ -9,7 +9,7 @@ from .logger import create_log_file
 from .nsig import NsigHelper
 
 config = get_config()
-logger = logging.getLogger("floatie")
+logger = logging.getLogger("utils.floatie")
 
 
 class InnertubeError(Exception):
@@ -88,7 +88,7 @@ def fetch_playback_urls(video_id: str, proxy_url: str | None) -> list[dict[str, 
     } if proxy_url is not None else None
 
     if proxy_url:
-        print(f"Using proxy {proxy_url}")
+        logger.debug(f"Using proxy {proxy_url}")
 
     response = requests.request("POST", url, headers=headers, json=payload, proxies=proxies, cookies=cookies, timeout=10)
     if not response.ok:

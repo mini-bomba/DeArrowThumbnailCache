@@ -1,10 +1,14 @@
 import threading
 from typing import Any
-from fastapi import FastAPI, HTTPException
+
 import uvicorn
-from rq.worker import SimpleWorker as Worker, WorkerStatus, DequeueStrategy
-from utils.redis_handler import redis_conn
+from fastapi import FastAPI, HTTPException
+from rq.worker import DequeueStrategy, WorkerStatus
+from rq.worker import SimpleWorker as Worker
+
 from utils.config import get_config
+from utils.logger import logging_setup
+from utils.redis_handler import redis_conn
 
 config = get_config()
 listen = ["high", "default"]
@@ -45,11 +49,13 @@ def get_health_check() -> dict[str, Any]:
 
 
 if __name__ == "__main__":
+    logging_setup()
     uvicorn_thread = threading.Thread(target=uvicorn.run, kwargs={
         "app": health_check,
-        "host": config.server.host, # type: ignore
+        "host": config.server.host,
         "port": config.server.worker_health_check_port,
-        "log_level": "info" if config.debug else "warning"
+        "log_level": config.log_level,
+        "log_config": None,
     })
     uvicorn_thread.daemon = True
     uvicorn_thread.start()

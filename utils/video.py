@@ -1,11 +1,16 @@
-from dataclasses import dataclass
+import logging
 import re
+from dataclasses import dataclass
 from typing import Any, cast
-import yt_dlp # pyright: ignore[reportMissingTypeStubs]
-from .config import get_config
+
+import yt_dlp  # pyright: ignore[reportMissingTypeStubs]
+
 from . import floatie
+from .config import get_config
 
 config = get_config()
+logger = logging.getLogger("utils.video")
+
 
 @dataclass
 class PlaybackUrl:
@@ -14,11 +19,13 @@ class PlaybackUrl:
     height: int
     fps: int
 
+
 def valid_video_id(video_id: str) -> bool:
     return isinstance(video_id, str) and re.match(r"^[A-Za-z0-9_\-]{11}$", video_id) is not None
 
+
 def get_playback_url(video_id: str, proxy_url: str | None = None,
-                        height: int = config.default_max_height) -> PlaybackUrl:
+                     height: int = config.default_max_height) -> PlaybackUrl:
     playback_urls = get_playback_urls(video_id, proxy_url)
 
     for url in playback_urls:
@@ -27,6 +34,7 @@ def get_playback_url(video_id: str, proxy_url: str | None = None,
 
     raise ValueError(f"Failed to find playback URL with height <= {height}")
 
+
 def get_playback_urls(video_id: str, proxy_url: str | None) -> list[PlaybackUrl]:
     formats: list[dict[str, str | int]] | None = None
     errors: list[Exception] = []
@@ -34,13 +42,13 @@ def get_playback_urls(video_id: str, proxy_url: str | None) -> list[PlaybackUrl]
     if config.try_floatie:
         try:
             formats = floatie.fetch_playback_urls(video_id, proxy_url)
-        except floatie.InnertubePlayabilityError as e:
-            print(f"floatie error:{e}")
+        except floatie.InnertubePlayabilityError:
+            logger.exception("floatie error")
 
             # Give up early, let the client generate one since it is geoblocked
             return []
         except Exception as e:
-            print(f"floatie error:{e}")
+            logger.exception("floatie error")
             errors.append(e)
 
     if formats is None and config.try_ytdlp:
@@ -57,8 +65,11 @@ def get_playback_urls(video_id: str, proxy_url: str | None) -> list[PlaybackUrl]
         # Filter for only av1
         formats = [format for format in formats if format_has_av1(format)]
 
-    formatted_urls = [PlaybackUrl(url["url"], url["width"], url["height"], url["fps"])
-        for url in cast(list[dict[str, Any]], formats) if "height" in url and url["height"] is not None]
+    formatted_urls = [
+        PlaybackUrl(url["url"], url["width"], url["height"], url["fps"])
+        for url in cast(list[dict[str, Any]], formats)
+        if "height" in url and url["height"] is not None
+    ]
 
     if formatted_urls[-1].height > 720:
         # Order is the wrong way
@@ -67,9 +78,11 @@ def get_playback_urls(video_id: str, proxy_url: str | None) -> list[PlaybackUrl]
 
     return formatted_urls
 
+
 def format_has_av1(format: dict[str, str | int]) -> bool:
     return ("mimeType" in format and "av01" in cast(str, format["mimeType"])) \
-        or  ("vcodec" in format and "av01" in cast(str, format["vcodec"]))
+        or ("vcodec" in format and "av01" in cast(str, format["vcodec"]))
+
 
 def fetch_playback_urls_from_ytdlp(video_id: str, proxy_url: str | None) -> list[dict[str, str | int]]:
     url = f"https://www.youtube.com/watch?v={video_id}"
@@ -83,7 +96,7 @@ def fetch_playback_urls_from_ytdlp(video_id: str, proxy_url: str | None) -> list
     }) as ydl:
         info: Any = ydl.extract_info(url, download=False)
 
-        formats: list[dict[str, str | int]] = ydl.sanitize_info(info)["formats"] # pyright: ignore
+        formats: list[dict[str, str | int]] = ydl.sanitize_info(info)["formats"]  # pyright: ignore
         if isinstance(formats, list):
             return formats
         else:

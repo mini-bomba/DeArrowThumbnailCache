@@ -1,3 +1,4 @@
+import logging
 import os
 import shutil
 import time
@@ -5,15 +6,19 @@ from typing import Tuple
 
 from pydantic import ByteSize
 from retry import retry
-from .config import get_config
-from .redis_handler import get_async_redis_conn, redis_conn, queue_high
+
 from constants.thumbnail import image_format, minimum_file_size
+
+from .config import get_config
+from .redis_handler import get_async_redis_conn, queue_high, redis_conn
 
 config = get_config()
 folder_path = config.thumbnail_storage.path
 max_size = config.thumbnail_storage.max_size
 target_storage_size = ByteSize(max_size * config.thumbnail_storage.cleanup_multiplier)
 redis_offset_allowed = config.thumbnail_storage.redis_offset_allowed
+logger = logging.getLogger("utils.cleanup")
+
 
 def cleanup() -> None:
     # First try clenup using redis data
@@ -35,8 +40,9 @@ def cleanup() -> None:
         storage_saved = cleanup_internal(folder_size, file_count)
         redis_conn.set(storage_used_key(), folder_size - storage_saved)
 
+
 def cleanup_internal(folder_size: ByteSize, file_count: int | None = None) -> int:
-    print(f"Storage used: {folder_size.human_readable(True)} with {file_count} files. Targeting {target_storage_size.human_readable(True)}.")
+    logger.info(f"Storage used: {folder_size.human_readable(True)} with {file_count} files. Targeting {target_storage_size.human_readable(True)}.")
 
     storage_saved = 0
     if folder_size > target_storage_size:
@@ -58,6 +64,7 @@ def cleanup_internal(folder_size: ByteSize, file_count: int | None = None) -> in
                 delete_video(video_id)
 
     return storage_saved
+
 
 @retry(tries=5, delay=0.1, backoff=3)
 def check_if_cleanup_needed() -> None:
@@ -98,17 +105,21 @@ def get_folder_size(path: os.PathLike[str] | str, delete_small_images: bool = Fa
 
     return ByteSize(total), file_count
 
+
 @retry(tries=5, delay=0.1, backoff=3)
 def get_oldest_video_id() -> str:
     return redis_conn.zrange(last_used_key(), 0, 0)[0].decode("utf-8")
+
 
 @retry(tries=5, delay=0.1, backoff=3)
 def get_last_used_rank(video_id: str) -> int | None:
     return redis_conn.zrank(last_used_key(), last_used_element_key(video_id))
 
+
 @retry(tries=5, delay=0.1, backoff=3)
 def get_size_of_last_used() -> int:
     return redis_conn.zcard(last_used_key())
+
 
 @retry(tries=5, delay=0.1, backoff=3)
 def delete_video(video_id: str) -> None:
@@ -116,7 +127,8 @@ def delete_video(video_id: str) -> None:
     try:
         shutil.rmtree(folder_path/video_id)
     except FileNotFoundError:
-        print(f"Could not find folder for video {video_id}")
+        logger.error(f"Could not find folder for video {video_id}")
+
 
 @retry(tries=5, delay=0.1, backoff=3)
 async def update_last_used(video_id: str) -> None:
@@ -124,21 +136,27 @@ async def update_last_used(video_id: str) -> None:
         last_used_element_key(video_id): int(time.time())
     })
 
+
 @retry(tries=5, delay=0.1, backoff=3)
 async def add_storage_used(size: int) -> None:
     await (await get_async_redis_conn()).incrby(storage_used_key(), size)
 
+
 def last_used_key() -> str:
     return "last-used"
+
 
 def last_used_element_key(video_id: str) -> str:
     return video_id
 
+
 def storage_used_key() -> str:
     return "storage-used"
 
+
 def last_storage_check_key() -> str:
     return "last-storage-check"
+
 
 def get_cleanup_job_id() -> str:
     return "cleanup"
