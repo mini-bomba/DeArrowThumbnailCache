@@ -58,6 +58,10 @@ class NSigHelperConfig(BaseModel):
         "1:00:00", ge=timedelta(0), validate_default=True,
         description="If nsig helper's player is older than this value, request an update",
     )
+    timeout: float | None = Field(
+        1.0, gt=0,
+        description="Timeout for socket operations with nsig helper, in seconds. Set to null to disable."
+    )
 
 
 class YTAuth(BaseModel):

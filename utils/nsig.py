@@ -4,6 +4,7 @@ import enum
 import logging
 import socket
 import struct
+import sys
 
 from .config import get_config
 
@@ -28,9 +29,12 @@ player_update_timestamp_response = "!Q"
 # 1. any errors raised will set an errored attribute on the instance
 # 2. if the errored attribute is set when calling the decorated func, the reset_connection() func is called first
 def track_errors(func):
-    def decorated(self, *args, **kwargs):
+    def decorated(self: 'NsigHelper', *args, **kwargs):
         if self.errored:
             logger.warning("NsigHelper is in an errored state: resetting connection")
+            self.reset_connection()
+        elif self.check_disconnected():
+            logger.warning("NsigHelper has disconnected: resetting connection")
             self.reset_connection()
         try:
             return func(self, *args, **kwargs)
@@ -72,9 +76,13 @@ class NsigHelper:
         self._next_request_id = 0
         self.errored = True
         if config.yt_auth.nsig_helper.tcp is not None:
-            self.connection = socket.create_connection(config.yt_auth.nsig_helper.tcp)
+            self.connection = socket.create_connection(
+                    config.yt_auth.nsig_helper.tcp,
+                    timeout=config.yt_auth.nsig_helper.timeout
+            )
         elif config.yt_auth.nsig_helper.unix is not None:
             self.connection = socket.socket(family=socket.AF_UNIX, type=socket.SOCK_STREAM)
+            self.connection.settimeout(config.yt_auth.nsig_helper.timeout)
             self.connection.connect(str(config.yt_auth.nsig_helper.unix))
         else:
             raise NsigError("No address for NsigHelper was configured")
@@ -97,6 +105,16 @@ class NsigHelper:
         else:
             raise NsigError("No address for NsigHelper was configured")
         self.errored = False
+
+    def check_disconnected(self) -> bool:
+        try:
+            self.connection.settimeout(sys.float_info.min)  # I could set this to 0, but then the error is OS-dependent
+            res = self.connection.recv(2, socket.MSG_PEEK)
+            return len(res) == 0
+        except TimeoutError:
+            return False
+        finally:
+            self.connection.settimeout(config.yt_auth.nsig_helper.timeout)
 
     # this changes every time it's queried!
     # plz query once and assign to a local variable
