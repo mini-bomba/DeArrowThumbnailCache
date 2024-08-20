@@ -56,6 +56,7 @@ if __name__ == "__main__":
         "port": config.server.worker_health_check_port,
         "log_level": config.log_level,
         "log_config": None,
+        "access_log": False,
     })
     uvicorn_thread.daemon = True
     uvicorn_thread.start()
