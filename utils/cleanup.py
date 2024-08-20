@@ -40,6 +40,15 @@ def cleanup() -> None:
         storage_saved = cleanup_internal(folder_size, file_count)
         redis_conn.set(storage_used_key(), folder_size - storage_saved)
 
+    # Scan for & delete empty directories
+    with os.scandir(folder_path) as it:
+        for entry in it:
+            if not entry.name.startswith('.') and entry.is_dir() and len(os.listdir(folder_path / entry.name)) == 0:
+                try:
+                    (folder_path / entry.name).rmdir()
+                except OSError:
+                    pass  # guess it wasn't actually empty /shrug
+
 
 def cleanup_internal(folder_size: ByteSize, file_count: int | None = None) -> int:
     logger.info(f"Storage used: {folder_size.human_readable(True)} with {file_count} files. Targeting {target_storage_size.human_readable(True)}.")
