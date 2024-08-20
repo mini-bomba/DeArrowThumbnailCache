@@ -93,6 +93,7 @@ class Config(BaseModel):
     front_auth: str | None = Field(None, description="Auth token used to prioritize thumbnail generation jobs")
     unique_hostnames: bool = Field(False, description="Assume worker hostnames are unique - don't add random suffixes")
     log_level: str | int = Field("warning", description="Print logs with this level and higher")
+    stderr_threshold: str | int = Field("warning", description="Send logs with this and higher level to stderr, others to stdout. 0 <= only uses stderr, 51 >= only stdout")
     project_url: HttpUrl = Field(
         "https://github.com/ajayyy/DeArrowThumbnailCache", validate_default=True,
         description="Project homepage, '/' will redirect here",

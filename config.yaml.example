@@ -26,5 +26,6 @@ status_auth_password: password
 skip_local_ffmpeg: false
 try_floatie: true
 try_ytdlp: true
-debug: false
+log_level: warning
+stderr_threshold: warning
 project_url: https://github.com/ajayyy/DeArrowThumbnailCache
