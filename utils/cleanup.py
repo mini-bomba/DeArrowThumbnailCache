@@ -63,6 +63,7 @@ def cleanup_internal(folder_size: ByteSize, file_count: int | None = None) -> in
                 storage_saved += get_folder_size(folder_path/video_id)[0]
                 delete_video(video_id)
 
+    logger.info(f"Cache cleanup complete. Freed {ByteSize(storage_saved).human_readable(True)}")
     return storage_saved
 
 
