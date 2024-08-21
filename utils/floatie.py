@@ -64,6 +64,10 @@ def fetch_playback_urls(video_id: str, proxy_url: str | None) -> list[dict[str, 
         "racyCheckOk": True,
         # https://github.com/iv-org/invidious/pull/4789/files#diff-3919f4375b028c051402e6e79ae426d16da8fc4db65b4dfa945c384d00132870
         "params": "2AMB",
+        # https://github.com/iv-org/invidious/blob/e319c35f097e08590e705378c7e5b479720deabc/src/invidious/yt_backend/youtube_api.cr#L478-L480
+        "user": {
+            "lockedSafetyMode": False,
+        },
     }
     headers = {
         'X-Youtube-Client-Name': '1',
