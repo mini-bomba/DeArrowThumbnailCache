@@ -30,8 +30,8 @@ context = {
   "client": {
     "browserName": "Chrome",
     "browserVersion": "125.0.0.0",
-    "clientName": "WEB",
-    "clientVersion": "2.20240808.00.00",
+    "clientName": "WEB_CREATOR",
+    "clientVersion": "1.20240918.03.00",
     "osName": "Windows",
     "osVersion": "10.0",
     "platform": "DESKTOP",
@@ -70,8 +70,8 @@ def fetch_playback_urls(video_id: str, proxy_url: str | None) -> list[dict[str, 
         },
     }
     headers = {
-        'X-Youtube-Client-Name': '1',
-        'X-Youtube-Client-Version': '2.20240808.00.00',
+        'X-Youtube-Client-Name': '62',
+        'X-Youtube-Client-Version': context["client"]["clientVersion"],
         'Origin': 'https://www.youtube.com',
         'User-Agent': USER_AGENT,
         'Content-Type': 'application/json',
